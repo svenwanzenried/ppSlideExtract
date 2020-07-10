@@ -114,12 +114,13 @@ namespace ppSlideExtract
             }
 
             var slideList = exportPPSlides(inputFile, outputPath, height, width);
-            slideList.Remove((int)numMask.Value);
-            slideList.Remove((int)numShadow.Value);
+             
             if (cbMask.Checked)
             {
+                slideList.Remove((int)numMask.Value);
                 if (cbShadow.Checked)
                 {
+                    slideList.Remove((int)numShadow.Value);
                     doWithEmguCV(outputPath, slideList, (int)numMask.Value, (int)numShadow.Value);
                 }
                 else
