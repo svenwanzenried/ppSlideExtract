@@ -11,3 +11,6 @@ The mask slide should be grayscale. Black areas will be transparent.
 ### Shadowing
 If the user provides an additional mask for shadowing, this mask will be applied to the extracts prior to saving the image.
 The mask slide should be grayscale. Black areas will be dark (over transparent color)
+##
+![Preview of Utility](https://github.com/svenito92/ppSlideExtract/blob/master/Documentation/Images/Preview.png)
+![Functionality of Utility](https://github.com/svenito92/ppSlideExtract/blob/master/Documentation/Images/Functionality.png)
