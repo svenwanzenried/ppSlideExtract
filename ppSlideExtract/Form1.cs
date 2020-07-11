@@ -135,8 +135,17 @@ namespace ppSlideExtract
                     break;
             }
 
-            var maskSlide = (int)numMask.Value;
-            var shadowSlide = (int)numShadow.Value;
+            var maskSlide = 0;
+            var shadowSlide = 0;
+            if (cbMask.Checked)
+            {
+                maskSlide = (int)numMask.Value;
+                if (cbShadow.Checked)
+                {
+                    shadowSlide = (int)numShadow.Value;
+                }
+            }
+
             var slideList = new List<int>();
 
             try
@@ -154,14 +163,10 @@ namespace ppSlideExtract
                 slideList.Remove((int)numMask.Value);
                 if (cbShadow.Checked)
                 {
-                    slideList.Remove((int)numShadow.Value);
-                    extractFromSlides(outputPath, slideList, maskSlide, shadowSlide);
-                }
-                else
-                {
-                    extractFromSlides(outputPath, slideList, maskSlide, 0);
+                    slideList.Remove((int)numShadow.Value);  
                 }
             }
+            extractFromSlides(outputPath, slideList, maskSlide, shadowSlide);
 
         }
 
@@ -170,28 +175,32 @@ namespace ppSlideExtract
             var pptApp = new PowerPoint.Application();
             var pptPres = pptApp.Presentations.Open(filename);
 
-
-            if (maskSlide > pptPres.Slides.Count + 1) { throw new ArgumentException("Mask slide value too high!"); }
-            if (shadowSlide > pptPres.Slides.Count + 1) { throw new ArgumentException("Shadow slide value too high!"); }
-
-            var slideList = new List<int>();
-            foreach (PowerPoint.Slide s in pptPres.Slides)
-            {
-                s.Export(outdir + slidePrefix + s.SlideNumber + ".png", "png", width, height);
-                slideList.Add(s.SlideNumber);
-            }
-
             try
             {
-                pptPres.Close();
-                if (pptApp.Presentations.Count == 0)
-                {
-                    pptApp.Quit();
-                }
-            }
-            catch { MessageBox.Show("PowerPoint could not be closed properly"); }
+                if (maskSlide > pptPres.Slides.Count) { throw new ArgumentException("Mask slide value too high!"); }
+                if (shadowSlide > pptPres.Slides.Count) { throw new ArgumentException("Shadow slide value too high!"); }
 
-            return slideList;
+                var slideList = new List<int>();
+                foreach (PowerPoint.Slide s in pptPres.Slides)
+                {
+                    s.Export(outdir + slidePrefix + s.SlideNumber + ".png", "png", width, height);
+                    slideList.Add(s.SlideNumber);
+                }
+
+                return slideList;
+            }
+            finally
+            {
+                try
+                {
+                    pptPres.Close();
+                    if (pptApp.Presentations.Count == 0)
+                    {
+                        pptApp.Quit();
+                    }
+                }
+                catch { MessageBox.Show("PowerPoint could not be closed properly"); }
+            }
 
         }
 
