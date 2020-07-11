@@ -7,6 +7,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using System.IO;
 
 // NuGet Packages
 using PowerPoint = Microsoft.Office.Interop.PowerPoint;
@@ -14,6 +15,7 @@ using Emgu.CV;
 using Emgu.CV.CvEnum;
 using Emgu.CV.Structure;
 using Emgu.CV.UI;
+using Emgu.CV.Util;
 
 namespace ppSlideExtract
 {
@@ -22,6 +24,14 @@ namespace ppSlideExtract
         public Form1()
         {
             InitializeComponent();
+        }
+
+        private void Form1_Load(object sender, EventArgs e)
+        {
+            comboBoxResolution.SelectedIndex = 1;
+#if !DEBUG
+            comboBoxResolution.Items.RemoveAt(3);
+#endif
         }
 
         private void cbMask_CheckedChanged(object sender, EventArgs e)
@@ -97,6 +107,10 @@ namespace ppSlideExtract
             var outputPath = textBoxOutputFolder.Text;
             if (!outputPath.EndsWith("\\")) { outputPath += "\\"; }
 
+            if (!File.Exists(inputFile)) { MessageBox.Show("Chosen file does not exist!", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error); return; }
+            if (!Directory.Exists(outputPath)) { Directory.CreateDirectory(outputPath); }
+
+
             switch (comboBoxResolution.SelectedIndex)
             {
                 case 0:
@@ -111,29 +125,54 @@ namespace ppSlideExtract
                     width = 3840;
                     height = 2160;
                     break;
+                case 3:
+                    width = 5;
+                    height = 5;
+                    break;
+                default:
+                    width = 1920;
+                    height = 1080;
+                    break;
             }
 
-            var slideList = exportPPSlides(inputFile, outputPath, height, width);
-             
+            var maskSlide = (int)numMask.Value;
+            var shadowSlide = (int)numShadow.Value;
+            var slideList = new List<int>();
+
+            try
+            {
+                slideList = exportPPSlides(inputFile, outputPath, maskSlide, shadowSlide, height, width);
+            }
+            catch (ArgumentException ex)
+            {
+                MessageBox.Show("Argument Exception: " + ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+
             if (cbMask.Checked)
             {
                 slideList.Remove((int)numMask.Value);
                 if (cbShadow.Checked)
                 {
                     slideList.Remove((int)numShadow.Value);
-                    doWithEmguCV(outputPath, slideList, (int)numMask.Value, (int)numShadow.Value);
+                    extractFromSlides(outputPath, slideList, maskSlide, shadowSlide);
                 }
                 else
                 {
-                    doWithEmguCV(outputPath, slideList, (int)numMask.Value, 0);
+                    extractFromSlides(outputPath, slideList, maskSlide, 0);
                 }
             }
+
         }
 
-        private List<int> exportPPSlides(string filename, string outdir, int height = 1080, int width = 1920, string slidePrefix = "Slide_")
+        private List<int> exportPPSlides(string filename, string outdir, int maskSlide, int shadowSlide, int height = 1080, int width = 1920, string slidePrefix = "Slide_")
         {
             var pptApp = new PowerPoint.Application();
             var pptPres = pptApp.Presentations.Open(filename);
+
+
+            if (maskSlide > pptPres.Slides.Count + 1) { throw new ArgumentException("Mask slide value too high!"); }
+            if (shadowSlide > pptPres.Slides.Count + 1) { throw new ArgumentException("Shadow slide value too high!"); }
 
             var slideList = new List<int>();
             foreach (PowerPoint.Slide s in pptPres.Slides)
@@ -156,49 +195,56 @@ namespace ppSlideExtract
 
         }
 
-        private void doWithEmguCV(string outdir, List<int> slideList, int maskSlide, int shadowSlide, string slidePrefix = "Slide_")
+        private void extractFromSlides(string outdir, List<int> slideList, int maskSlide, int shadowSlide, string slidePrefix = "Slide_")
         {
-            Image<Bgra, double> maskF, shadowF_inv = null;
-
-            var mask = new Image<Bgra, byte>(outdir + slidePrefix + maskSlide + ".png");
-            maskF = mask.Convert<Bgra, double>() / 255;
-            mask.Dispose();
+            var mat_mask = CvInvoke.Imread(outdir + slidePrefix + maskSlide + ".png", ImreadModes.Grayscale);
+            Mat mat_shadow_inv = null;
 
             if (shadowSlide > 0)
             {
-                var shadow = new Image<Bgra, byte>(outdir + slidePrefix + shadowSlide + ".png");
-                var shadowF = shadow.Convert<Bgra, double>() / 255;
-                shadowF_inv = 1 - shadowF;
-                shadowF_inv[3] += 1;
-                shadow.Dispose();
+                var mat_shadow = CvInvoke.Imread(outdir + slidePrefix + shadowSlide + ".png", ImreadModes.Grayscale);
+                mat_shadow_inv = 255 - mat_shadow;
+                mat_shadow.Dispose();
             }
+
+            Mat mat_content = null;
+            VectorOfMat mat_content_bgr = null;
+            Mat mat_alpha = null;
 
             foreach (var slide in slideList)
             {
+                // Read current image back from File
+                mat_content = CvInvoke.Imread(outdir + slidePrefix + slide + ".png", ImreadModes.Color);
 
-                var content = new Image<Bgra, byte>(outdir + slidePrefix + slide + ".png");
-                var contentF = content.Convert<Bgra, double>() / 255;
-                content.Dispose();
-                contentF = contentF.Mul(maskF);
+                // Split in Blue, Green and Red channel
+                mat_content_bgr = new VectorOfMat(mat_content.Split());
+
+                // Mask all channel so image gets blck where mask is black
+                CvInvoke.Multiply(mat_content_bgr[0], mat_mask, mat_content_bgr[0], 1.0 / 255);
+                CvInvoke.Multiply(mat_content_bgr[1], mat_mask, mat_content_bgr[1], 1.0 / 255);
+                CvInvoke.Multiply(mat_content_bgr[2], mat_mask, mat_content_bgr[2], 1.0 / 255);
+
+                // Create alpha layer for image
+                mat_alpha = mat_mask.Clone();
                 if (shadowSlide > 0)
                 {
-                    contentF[3] = shadowF_inv[0] + maskF[0];
+                    CvInvoke.Add(mat_mask, mat_shadow_inv, mat_alpha);
                 }
-                else
-                {
-                    contentF[3] = maskF[0];
-                }
-                (contentF * 255).Save(outdir + "Banner_" + slidePrefix + slide + ".png");
 
-                contentF.Dispose();
+                // Merge channels to one image again
+                CvInvoke.Merge(new VectorOfMat(mat_content_bgr[0], mat_content_bgr[1], mat_content_bgr[2], mat_alpha), mat_content);
+
+                // Save current extracted image with alpha layer
+                mat_content.Save(outdir + "Extract_" + slide + ".png"); 
             }
-            maskF.Dispose();
-            if (shadowF_inv != null) { shadowF_inv.Dispose(); }
+
+            // Dispose all used elements
+            if(mat_mask != null) { mat_mask.Dispose(); }
+            if(mat_shadow_inv != null) { mat_shadow_inv.Dispose(); }
+            if(mat_content != null) { mat_content.Dispose(); }
+            if (mat_content_bgr != null) { mat_content_bgr.Dispose(); }
+            if (mat_alpha != null) { mat_alpha.Dispose(); }
         }
 
-        private void Form1_Load(object sender, EventArgs e)
-        {
-            comboBoxResolution.SelectedIndex = 1;
-        }
     }
 }

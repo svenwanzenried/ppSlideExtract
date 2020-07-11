@@ -153,6 +153,7 @@
             this.textBoxOutputFolder.Name = "textBoxOutputFolder";
             this.textBoxOutputFolder.Size = new System.Drawing.Size(523, 20);
             this.textBoxOutputFolder.TabIndex = 9;
+            this.textBoxOutputFolder.Text = "C:\\Temp\\ppSlideExtract";
             // 
             // label2
             // 
@@ -190,7 +191,8 @@
             this.comboBoxResolution.Items.AddRange(new object[] {
             "1: HD (1280x720)",
             "2: Full HD (1920x1080)",
-            "3: 4K (3840x2160)"});
+            "3: 4K (3840x2160)",
+            "4: Debug (16x9)"});
             this.comboBoxResolution.Location = new System.Drawing.Point(369, 50);
             this.comboBoxResolution.Name = "comboBoxResolution";
             this.comboBoxResolution.Size = new System.Drawing.Size(206, 21);
@@ -225,7 +227,7 @@
             this.Controls.Add(this.textBoxInputFile);
             this.Controls.Add(this.label1);
             this.Name = "Form1";
-            this.Text = "ppSlideExtract";
+            this.Text = "ppSlideExtract (v1.1)";
             this.Load += new System.EventHandler(this.Form1_Load);
             ((System.ComponentModel.ISupportInitialize)(this.numMask)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.numShadow)).EndInit();
