@@ -2,7 +2,7 @@
 Small utility to extract slides from PowerPoint (from HD up to 4K). Additionally areas of slides can be isolated onto a transparent background.
 ## Functions
 ### Basic
-The basic functionaliy of this utility is to extract slides from PowerPoint files to .png images. As PowerPoint natively only exports 720p images this can come in handy.
+The basic functionaliy of this utility is to extract slides from PowerPoint files to .png images. As PowerPoint only exports 720p images natively, this could prove useful.
 In every case, it exports all slides of the file (except mask slides, see below) in the given resolution to a given directory.
 ### Masking
 The user can create mask slides in the PowerPoint file for extracting parts of every slide onto a transparent background (see below).
